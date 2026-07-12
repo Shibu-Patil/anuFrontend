@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; font-size: 17px; color: #1a1a1a; background: #fff; -webkit-font-smoothing: antialiased; }
+    .layout { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+    .top { display: flex; justify-content: space-between; align-items: center; padding: 24px 0; border-bottom: 1px solid #eee; }
+    .top h1 { font-size: 20px; font-weight: 700; }
+    .top-right { display: flex; align-items: center; gap: 12px; font-size: 14px; color: #888; }
+    .logout { font-family: 'Inter', sans-serif; font-size: 13px; padding: 6px 14px; background: none; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; color: #888; }
+    .logout:hover { border-color: #c33; color: #c33; }
+    .form-heading { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .form-heading h2 { font-size: 22px; font-weight: 700; margin-top: 32px; }
+    .form-heading .cancel { font-size: 13px; color: #888; cursor: pointer; background: none; border: none; text-decoration: underline; display: none; }
+    .form-heading .cancel.show { display: inline; }
+    .sub { color: #888; font-size: 15px; margin-bottom: 24px; }
+    .form { display: flex; flex-direction: column; gap: 16px; margin-bottom: 48px; }
+    .form label { font-size: 14px; font-weight: 600; margin-bottom: -8px; }
+    .form input, .form textarea { font-family: 'Inter', sans-serif; font-size: 15px; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+    .form input:focus, .form textarea:focus { border-color: #1a1a1a; }
+    .form textarea { min-height: 200px; resize: vertical; line-height: 1.6; }
+    .form .actions { display: flex; gap: 10px; align-items: center; }
+    .form button { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; padding: 12px 24px; background: #1a1a1a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    .form button:hover { background: #333; }
+    .form button:disabled { background: #888; cursor: not-allowed; }
+    .form .cancel-btn { font-family: 'Inter', sans-serif; font-size: 14px; padding: 12px 20px; background: none; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; color: #888; display: none; }
+    .form .cancel-btn.show { display: inline-block; }
+    .form .cancel-btn:hover { border-color: #888; color: #333; }
+    .status { font-size: 14px; padding: 8px 12px; border-radius: 4px; display: none; }
+    .status.ok { display: block; background: #e6f7e6; color: #2d6e2d; }
+    .status.err { display: block; background: #fee; color: #c33; }
+    .posts { margin-top: 24px; }
+    .posts h3 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+    .post { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+    .post-info .title { font-size: 15px; font-weight: 500; }
+    .post-info .date { font-size: 13px; color: #999; }
+    .post-actions { display: flex; gap: 6px; }
+    .post-actions button { font-family: 'Inter', sans-serif; font-size: 13px; padding: 4px 12px; background: none; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; color: #888; }
+    .post-actions .edit:hover { border-color: #1a1a1a; color: #1a1a1a; }
+    .post-actions .del:hover { border-color: #c33; color: #c33; }
+    .empty { color: #888; font-size: 14px; }
+    a { color: #888; font-size: 14px; text-decoration: none; }
+    a:hover { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="top">
+      <h1>Dashboard</h1>
+      <div class="top-right">
+        <span id="username"></span>
+        <button class="logout" id="logout">Sign out</button>
+      </div>
+    </div>
+
+    <div class="form-heading">
+      <h2 id="form-heading">New post</h2>
+      <button class="cancel" id="cancel-heading">cancel</button>
+    </div>
+    <p class="sub" id="form-sub">Add a blog post</p>
+    <form class="form" id="form">
+      <input type="hidden" id="edit-id">
+      <label for="title">Title</label>
+      <input type="text" id="title" required>
+      <label for="excerpt">Excerpt (optional)</label>
+      <input type="text" id="excerpt">
+      <label for="content">Content (HTML)</label>
+      <textarea id="content" required></textarea>
+      <label for="image">Image URL (optional)</label>
+      <input type="url" id="image" placeholder="https://...">
+      <div class="status" id="status"></div>
+      <div class="actions">
+        <button type="submit" id="btn">Publish post</button>
+        <button type="button" class="cancel-btn" id="cancel-btn">Cancel</button>
+      </div>
+    </form>
+
+    <div class="posts">
+      <h3>Existing posts</h3>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const API = params.get('api') || localStorage.getItem('admin_api_url') || 'https://anuhyabackend.onrender.com';
+      const form = document.getElementById('form');
+      const statusEl = document.getElementById('status');
+      const btn = document.getElementById('btn');
+      const editId = document.getElementById('edit-id');
+      const formHeading = document.getElementById('form-heading');
+      const formSub = document.getElementById('form-sub');
+      const cancelBtn = document.getElementById('cancel-btn');
+      const cancelHeading = document.getElementById('cancel-heading');
+      let editingId = null;
+
+      function token() { return localStorage.getItem('admin_token'); }
+      function headers() { return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token() }; }
+      function goLogin() {
+        localStorage.removeItem('admin_token'); localStorage.removeItem('admin_username'); localStorage.removeItem('admin_api_url');
+        window.location.href = 'login.html';
+      }
+      function setEditing(id) {
+        editingId = id;
+        if (id) {
+          formHeading.textContent = 'Edit post';
+          formSub.textContent = 'Update the blog post';
+          btn.textContent = 'Update post';
+          cancelBtn.classList.add('show');
+          cancelHeading.classList.add('show');
+        } else {
+          formHeading.textContent = 'New post';
+          formSub.textContent = 'Add a blog post';
+          btn.textContent = 'Publish post';
+          cancelBtn.classList.remove('show');
+          cancelHeading.classList.remove('show');
+        }
+      }
+      function resetForm() {
+        form.reset(); editId.value = ''; setEditing(null); statusEl.className = 'status'; statusEl.textContent = '';
+      }
+      [cancelBtn, cancelHeading].forEach(el => el.addEventListener('click', resetForm));
+
+      (async function init() {
+        if (!token()) { goLogin(); return; }
+        document.getElementById('username').textContent = localStorage.getItem('admin_username') || '';
+        try {
+          const r = await fetch(API + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token() } });
+          if (!r.ok) { goLogin(); return; }
+          const d = await r.json();
+          document.getElementById('username').textContent = d.username;
+        } catch { goLogin(); return; }
+        loadPosts();
+      })();
+
+      document.getElementById('logout').onclick = goLogin;
+
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!token()) { goLogin(); return; }
+        statusEl.className = 'status';
+        btn.disabled = true;
+        btn.textContent = editingId ? 'Updating...' : 'Publishing...';
+
+        const body = {
+          title: document.getElementById('title').value,
+          excerpt: document.getElementById('excerpt').value,
+          content: document.getElementById('content').value,
+          image: document.getElementById('image').value
+        };
+
+        try {
+          const url = editingId ? API + '/api/blogs/' + editingId : API + '/api/blogs';
+          const method = editingId ? 'PUT' : 'POST';
+          const r = await fetch(url, { method, headers: headers(), body: JSON.stringify(body) });
+          if (r.status === 401) { goLogin(); return; }
+          if (!r.ok) throw new Error(await r.text());
+          statusEl.className = 'status ok';
+          statusEl.textContent = editingId ? 'Updated!' : 'Published!';
+          resetForm();
+          loadPosts();
+        } catch (err) {
+          statusEl.className = 'status err';
+          statusEl.textContent = err.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = editingId ? 'Update post' : 'Publish post';
+        }
+      };
+
+      async function loadPosts() {
+        const el = document.getElementById('list');
+        try {
+          const r = await fetch(API + '/api/blogs');
+          const blogs = await r.json();
+          if (!blogs.length) { el.innerHTML = '<p class="empty">No posts yet.</p>'; return; }
+          el.innerHTML = blogs.map(b =>
+            '<div class="post">' +
+              '<div class="post-info"><div class="title">' + b.title.replace(/</g, '&lt;') + '</div><div class="date">' + b.date + '</div></div>' +
+              '<div class="post-actions">' +
+                '<button class="edit" onclick="editPost(\'' + b.id + '\')">Edit</button>' +
+                '<button class="del" onclick="del(\'' + b.id + '\')">Delete</button>' +
+              '</div>' +
+            '</div>'
+          ).join('');
+        } catch { el.innerHTML = '<p class="empty">Could not load posts.</p>'; }
+      }
+
+      window.editPost = async function(id) {
+        try {
+          const r = await fetch(API + '/api/blogs/' + id);
+          if (!r.ok) throw Error();
+          const post = await r.json();
+          document.getElementById('title').value = post.title;
+          document.getElementById('excerpt').value = post.excerpt || '';
+          document.getElementById('content').value = post.content;
+          document.getElementById('image').value = post.image || '';
+          editId.value = id;
+          setEditing(id);
+          statusEl.className = 'status'; statusEl.textContent = '';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch { alert('Could not load post'); }
+      };
+
+      window.del = async function(id) {
+        if (!confirm('Delete?')) return;
+        if (editingId === id) resetForm();
+        try {
+          const r = await fetch(API + '/api/blogs/' + id, { method: 'DELETE', headers: headers() });
+          if (r.status === 401) { goLogin(); return; }
+          if (!r.ok) throw Error();
+          loadPosts();
+        } catch { alert('Error deleting'); }
+      };
+    })();
+  </script>
+</body>
+</html>

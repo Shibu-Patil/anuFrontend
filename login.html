@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; font-size: 17px; color: #1a1a1a; background: #fff; -webkit-font-smoothing: antialiased; }
+    .page { max-width: 380px; margin: 0 auto; padding: 0 24px; display: flex; flex-direction: column; justify-content: center; min-height: 100vh; }
+    .page h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.3px; }
+    .page p { color: #888; font-size: 15px; margin-bottom: 28px; }
+    .form { display: flex; flex-direction: column; gap: 16px; }
+    .form input { font-family: 'Inter', sans-serif; font-size: 15px; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+    .form input:focus { border-color: #1a1a1a; }
+    .form button { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; padding: 12px; background: #1a1a1a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    .form button:hover { background: #333; }
+    .form button:disabled { background: #888; cursor: not-allowed; }
+    .error { font-size: 14px; color: #c33; background: #fee; padding: 8px 12px; border-radius: 4px; display: none; }
+    .error.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Admin login</h1>
+    <p>Sign in to manage blog posts</p>
+    <form class="form" id="form">
+      <input type="text" id="username" placeholder="Username" required autocomplete="username">
+      <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+      <div class="error" id="error"></div>
+      <button type="submit" id="btn">Sign in</button>
+    </form>
+  </div>
+
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const API = params.get('api') || 'https://anuhyabackend.onrender.com';
+      const form = document.getElementById('form');
+      const errorEl = document.getElementById('error');
+      const btn = document.getElementById('btn');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.className = 'error';
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+        try {
+          const res = await fetch(API + '/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: document.getElementById('username').value,
+              password: document.getElementById('password').value
+            })
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || 'Invalid credentials');
+          }
+          const data = await res.json();
+          localStorage.setItem('admin_token', data.token);
+          localStorage.setItem('admin_username', data.username);
+          localStorage.setItem('admin_api_url', API);
+          window.location.href = 'admin.html?api=' + encodeURIComponent(API);
+        } catch (err) {
+          errorEl.className = 'error show';
+          errorEl.textContent = err.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Sign in';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
